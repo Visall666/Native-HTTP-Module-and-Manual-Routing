@@ -1,5 +1,7 @@
 // server.js
 const http = require('http');
+const fs = require('fs');
+const querystring = require('querystring');
 
 const server = http.createServer((req, res) => {
     const url = req.url;
@@ -23,8 +25,6 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    const querystring = require('querystring');
-
     if (url === '/contact' && method === 'POST') {
         let body = '';
 
@@ -34,25 +34,39 @@ const server = http.createServer((req, res) => {
 
         req.on('end', () => {
             const parsed = querystring.parse(body);
-            const name = parsed.name;
+            const name = parsed.name?.trim();
 
             console.log('Received name:', name);
 
+            // Bonus 1: Validate name
             if (!name) {
                 res.writeHead(400, { 'Content-Type': 'text/plain' });
                 return res.end('Name is required.');
             }
 
-            const fs = require('fs');
-            fs.appendFile('submissions.txt', name + '\n', (err) => {
+            // Bonus 3: Save as JSON
+            const submission = {
+                name: name,
+                timestamp: new Date().toISOString()
+            };
+
+            fs.appendFile('submissions.txt', JSON.stringify(submission) + '\n', (err) => {
                 if (err) {
                     console.error('Error writing to file:', err);
                     res.writeHead(500, { 'Content-Type': 'text/plain' });
                     return res.end('Server error');
                 }
 
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-                res.end('Thank you for your submission!');
+                // Bonus 2: Send confirmation HTML page
+                res.writeHead(200, { 'Content-Type': 'text/html' });
+                res.end(`
+                  <html>
+                    <head><title>Success</title></head>
+                    <body>
+                      <h2>Thank you, ${name}, for your submission!</h2>
+                    </body>
+                  </html>
+                `);
             });
         });
 
@@ -65,10 +79,9 @@ const server = http.createServer((req, res) => {
         return;
     }
 
-    else {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        return res.end('404 Not Found');
-    }
+    // Default 404
+    res.writeHead(404, { 'Content-Type': 'text/plain' });
+    res.end('404 Not Found');
 });
 
 server.listen(3000, () => {
